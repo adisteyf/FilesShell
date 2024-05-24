@@ -1,5 +1,5 @@
 extern crate ctrlc;
-
+extern crate colored;
 use std::io;
 use std::str;
 use std::sync::Arc;
@@ -8,17 +8,38 @@ use std::process::Command;
 use std::fs;
 use std::vec::Vec;
 use std::env;
+use crate::colored::Colorize;
 
 fn main() {
     let running = Arc::new(AtomicBool::new(true));
     let r = running.clone();
+    let user: String;
+    let mut pwd: String;
 
     ctrlc::set_handler(move || {
         r.store(false, Ordering::SeqCst);
     }).expect("Error setting Ctrl-C handler");
+
+    match env::var("USER") {
+        Ok(val) => {
+            user = val.clone();
+        },
+        Err(_) => user = String::from("error")
+    }
+
     loop {
         let mut line = String::new();
-        print!(">> ");
+        let mut output = Command::new("pwd")
+            .output()
+            .expect("error during run command");
+            output.stdout.pop();
+        pwd = String::from_utf8_lossy(&output.stdout).to_string();
+        pwd=pwd.replace(format!("/home/{}", user).as_str(), "~");
+
+        let prefix = format!("\n˥({u})\n˩ {pwd} {prig} ", u=user.color("green"), pwd=pwd.yellow(), prig="≻".bold());
+        // println!("|({u}@{h})", u=user, h=host);
+        // print!("└{}➔ ", pwd);
+        print!("{}", prefix);
         io::Write::flush(&mut io::stdout()).expect("flush failed!");
     
         // io::stdin().read_line(&mut line)
@@ -36,7 +57,7 @@ fn main() {
         line.pop();
 
         let main_command: &str = line.split_whitespace().next().unwrap_or_default();
-        if fs::metadata(format!("/bin/{}", main_command)).is_ok() {
+        if fs::metadata(format!("/bin/{}", main_command)).is_ok() && main_command != "" {
             let mut i = 0;
             let mut has_param = false;
             let mut params = Vec::new();
